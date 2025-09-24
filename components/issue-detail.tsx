@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 
 import type { GitHubIssue } from "@/lib/github";
 import { formatRelativeTime } from "@/lib/github";
+import { AgentAnalysis } from "./agent-analysis";
 
 export function IssueDetail({ issue }: { issue: GitHubIssue }) {
   return (
@@ -48,15 +49,19 @@ export function IssueDetail({ issue }: { issue: GitHubIssue }) {
       </header>
 
       <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Issue context</h2>
-          <div className="prose prose-slate max-w-none text-sm leading-relaxed">
-            {issue.body ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.body}</ReactMarkdown>
-            ) : (
-              <p className="text-slate-500">No description was provided for this issue.</p>
-            )}
+        <div className="space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Issue context</h2>
+            <div className="prose prose-slate max-w-none text-sm leading-relaxed">
+              {issue.body ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.body}</ReactMarkdown>
+              ) : (
+                <p className="text-slate-500">No description was provided for this issue.</p>
+              )}
+            </div>
           </div>
+
+          <AgentAnalysis issue={issue} />
         </div>
 
         <aside className="space-y-6">
