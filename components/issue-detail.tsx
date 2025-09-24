@@ -2,10 +2,14 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { IssueChat } from "@/components/issue-chat";
 import type { GitHubIssue } from "@/lib/github";
 import { formatRelativeTime } from "@/lib/github";
+import { estimateIssueEffort } from "@/lib/effort";
 
 export function IssueDetail({ issue }: { issue: GitHubIssue }) {
+  const estimate = estimateIssueEffort(issue);
+
   return (
     <article className="space-y-8">
       <header className="space-y-4 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -59,16 +63,45 @@ export function IssueDetail({ issue }: { issue: GitHubIssue }) {
           </div>
         </div>
 
-        <aside className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Estimation progress</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              The agent loop will dive into this ticket, traverse the codebase, and generate an engineering effort
-              estimate. Stay tuned!
-            </p>
-            <div className="mt-4 rounded-lg bg-brand-card p-4 text-white shadow-lg">
-              <p className="text-xs uppercase tracking-wide text-white/80">Status</p>
-              <p className="text-lg font-semibold">Awaiting agent analysis</p>
+        <aside className="flex flex-col gap-6">
+          <IssueChat
+            issueNumber={issue.number}
+            issueTitle={issue.title}
+            initialEstimateHours={estimate.hours}
+          />
+
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">Estimated effort</h3>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                  estimate.complexity === "high"
+                    ? "bg-red-100 text-red-700"
+                    : estimate.complexity === "medium"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-emerald-100 text-emerald-700"
+                }`}
+              >
+                {estimate.complexity} complexity
+              </span>
+            </div>
+
+            <div className="rounded-lg bg-brand-card p-5 text-white shadow-lg">
+              <p className="text-xs uppercase tracking-widest text-white/80">Estimated hours</p>
+              <p className="mt-2 text-3xl font-bold">{estimate.hours.toFixed(1)}h</p>
+              <p className="text-xs text-white/75">Confidence: {estimate.confidence}</p>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-500">Breakdown</h4>
+              <ul className="space-y-1 text-sm text-slate-600">
+                {estimate.breakdown.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-brand-primary" aria-hidden />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
