@@ -25,7 +25,7 @@ export interface GitHubUser {
   html_url: string;
 }
 
-export interface GitHubIssue {
+interface GitHubIssueResponse {
   id: number;
   number: number;
   title: string;
@@ -37,6 +37,19 @@ export interface GitHubIssue {
   user: GitHubUser;
   created_at: string;
   updated_at: string;
+  pull_request?: {
+    url: string;
+    html_url: string;
+    diff_url: string;
+    patch_url: string;
+    merged_at?: string | null;
+  };
+}
+
+export type GitHubIssue = Omit<GitHubIssueResponse, "pull_request">;
+
+function isIssue(item: GitHubIssueResponse): item is GitHubIssue {
+  return !item.pull_request;
 }
 
 async function githubFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -59,16 +72,38 @@ async function githubFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function fetchIssues(perPage = 12): Promise<GitHubIssue[]> {
-  const params = new URLSearchParams({
-    state: "open",
-    per_page: perPage.toString(),
-  });
+  const issues: GitHubIssue[] = [];
+  const pageSize = Math.min(100, Math.max(perPage * 2, 30));
 
-  return githubFetch<GitHubIssue[]>(`/issues?${params.toString()}`);
+  for (let page = 1; issues.length < perPage && page <= 5; page += 1) {
+    const params = new URLSearchParams({
+      state: "open",
+      per_page: pageSize.toString(),
+      sort: "created",
+      direction: "desc",
+      page: page.toString(),
+    });
+
+    const batch = await githubFetch<GitHubIssueResponse[]>(`/issues?${params.toString()}`);
+    const pureIssues = batch.filter(isIssue);
+    issues.push(...pureIssues);
+
+    if (batch.length < pageSize) {
+      break;
+    }
+  }
+
+  return issues.slice(0, perPage);
 }
 
 export async function fetchIssue(issueNumber: number): Promise<GitHubIssue> {
-  return githubFetch<GitHubIssue>(`/issues/${issueNumber}`);
+  const item = await githubFetch<GitHubIssueResponse>(`/issues/${issueNumber}`);
+
+  if (!isIssue(item)) {
+    throw new Error(`Item #${issueNumber} is a pull request, not an issue.`);
+  }
+
+  return item;
 }
 
 export function formatRelativeTime(value: string): string {
