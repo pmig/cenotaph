@@ -17,7 +17,7 @@ export function AgentAnalysis({ issue }: { issue: GitHubIssue }) {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const runAnalysis = async () => {
+  const runAnalysis = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     setIsAnalyzing(true);
     setError(null);
 
@@ -30,6 +30,8 @@ export function AgentAnalysis({ issue }: { issue: GitHubIssue }) {
           body: issue.body,
           labels: issue.labels.map((l) => l.name),
           comments: issue.comments,
+          issueNumber: issue.number,
+          forceRefresh,
         }),
       });
 
@@ -53,7 +55,7 @@ export function AgentAnalysis({ issue }: { issue: GitHubIssue }) {
           <h2 className="text-lg font-semibold text-slate-900">AI Agent Analysis</h2>
           {!analysis && (
             <button
-              onClick={runAnalysis}
+              onClick={() => runAnalysis()}
               disabled={isAnalyzing}
               className="rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-primary/90 disabled:opacity-50"
             >
@@ -129,7 +131,7 @@ export function AgentAnalysis({ issue }: { issue: GitHubIssue }) {
             <button
               onClick={() => {
                 setAnalysis(null);
-                runAnalysis();
+                runAnalysis({ forceRefresh: true });
               }}
               className="text-sm text-brand-primary hover:underline"
             >

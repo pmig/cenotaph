@@ -1,3 +1,5 @@
+import { getIssueCacheKey, getRedisClient, ISSUE_CACHE_TTL_SECONDS } from "./redis";
+
 const GITHUB_OWNER = "getsentry";
 const GITHUB_REPO = "sentry";
 
@@ -97,13 +99,69 @@ export async function fetchIssues(perPage = 12): Promise<GitHubIssue[]> {
 }
 
 export async function fetchIssue(issueNumber: number): Promise<GitHubIssue> {
+  const redis = await getRedisClient();
+  const cacheKey = getIssueCacheKey(issueNumber);
+
+  if (redis) {
+    try {
+      const cachedValue = await redis.get(cacheKey);
+      if (cachedValue) {
+        return JSON.parse(cachedValue) as GitHubIssue;
+      }
+    } catch (error) {
+      console.error(`Failed to read issue #${issueNumber} from Redis`, error);
+    }
+  }
+
   const item = await githubFetch<GitHubIssueResponse>(`/issues/${issueNumber}`);
 
   if (!isIssue(item)) {
     throw new Error(`Item #${issueNumber} is a pull request, not an issue.`);
   }
 
+  if (redis) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(item), "EX", ISSUE_CACHE_TTL_SECONDS);
+    } catch (error) {
+      console.error(`Failed to cache issue #${issueNumber} in Redis`, error);
+    }
+  }
+
   return item;
+}
+
+export async function getCachedIssueNumbers(issueNumbers: number[]): Promise<Set<number>> {
+  const redis = await getRedisClient();
+
+  if (!redis || issueNumbers.length === 0) {
+    return new Set();
+  }
+
+  try {
+    const pipeline = redis.pipeline();
+    issueNumbers.forEach((issueNumber) => {
+      pipeline.exists(getIssueCacheKey(issueNumber));
+    });
+
+    const results = await pipeline.exec();
+    const cached = new Set<number>();
+
+    results?.forEach((result, index) => {
+      if (!Array.isArray(result)) {
+        return;
+      }
+
+      const [error, exists] = result;
+      if (!error && Number(exists) === 1) {
+        cached.add(issueNumbers[index]);
+      }
+    });
+
+    return cached;
+  } catch (error) {
+    console.error("Failed to resolve cached issue numbers", error);
+    return new Set();
+  }
 }
 
 export function formatRelativeTime(value: string): string {
