@@ -66,18 +66,6 @@ export function IssueDetail({ issue }: { issue: GitHubIssue }) {
 
         <aside className="space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Estimation progress</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              The agent loop will dive into this ticket, traverse the codebase, and generate an engineering effort
-              estimate. Stay tuned!
-            </p>
-            <div className="mt-4 rounded-lg bg-brand-card p-4 text-white shadow-lg">
-              <p className="text-xs uppercase tracking-wide text-white/80">Status</p>
-              <p className="text-lg font-semibold">Awaiting agent analysis</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-900">Quick links</h3>
             <ul className="mt-3 space-y-2 text-sm text-brand-primary">
               <li>

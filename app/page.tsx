@@ -1,13 +1,15 @@
 import { Hero } from "@/components/hero";
 import { Header } from "@/components/header";
 import { IssueCard } from "@/components/issue-card";
-import { fetchIssues } from "@/lib/github";
+import { fetchIssues, getCachedIssueNumbers } from "@/lib/github";
 
 export default async function HomePage() {
   const issues = await fetchIssues().catch((error) => {
     console.error(error);
     return null;
   });
+
+  const cachedIssueNumbers = issues ? await getCachedIssueNumbers(issues.map((issue) => issue.number)) : new Set<number>();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -43,7 +45,7 @@ export default async function HomePage() {
           {issues && issues.length > 0 && (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {issues.map((issue) => (
-                <IssueCard key={issue.id} issue={issue} />
+                <IssueCard key={issue.id} issue={issue} isCached={cachedIssueNumbers.has(issue.number)} />
               ))}
             </div>
           )}

@@ -4,6 +4,12 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 
+import {
+  ANALYSIS_CACHE_TTL_SECONDS,
+  getIssueAnalysisCacheKey,
+  getRedisClient,
+} from "@/lib/redis";
+
 const analysisTemplate = `You are an expert software engineering analyst. Analyze the following GitHub issue and provide a detailed engineering effort estimation.
 
 Issue Title: {title}
@@ -26,7 +32,50 @@ Ensure your response is valid JSON only, with no additional text. It should not 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, body: issueBody, labels, comments } = body;
+    const {
+      title,
+      body: issueBody,
+      labels,
+      comments,
+      issueNumber,
+      forceRefresh,
+    } = body as {
+      title?: string;
+      body?: string;
+      labels?: string[];
+      comments?: number;
+      issueNumber?: number | string;
+      forceRefresh?: boolean;
+    };
+
+    const parsedIssueNumber =
+      typeof issueNumber === "number"
+        ? issueNumber
+        : typeof issueNumber === "string"
+          ? Number.parseInt(issueNumber, 10)
+          : NaN;
+    const hasValidIssueNumber = Number.isInteger(parsedIssueNumber) && parsedIssueNumber > 0;
+
+    const redis = await getRedisClient();
+    const cacheKey = hasValidIssueNumber ? getIssueAnalysisCacheKey(parsedIssueNumber) : null;
+
+    if (redis && cacheKey && forceRefresh) {
+      await redis.del(cacheKey).catch((error) => {
+        console.error(`Failed to drop cached analysis for issue #${parsedIssueNumber}`, error);
+      });
+    }
+
+    if (redis && cacheKey && !forceRefresh) {
+      try {
+        const cachedValue = await redis.get(cacheKey);
+        if (cachedValue) {
+          const cachedAnalysis = JSON.parse(cachedValue);
+          return NextResponse.json(cachedAnalysis);
+        }
+      } catch (error) {
+        console.error(`Failed to read cached analysis for issue #${parsedIssueNumber}`, error);
+      }
+    }
 
     const openAIApiKey = process.env.OPENAI_API_KEY;
     if (!openAIApiKey) {
@@ -63,6 +112,14 @@ export async function POST(request: NextRequest) {
       if (!analysis.summary || !analysis.estimatedHours || !analysis.complexity ||
           !analysis.requiredSkills || !analysis.potentialChallenges || !analysis.suggestedApproach) {
         throw new Error("Invalid analysis format");
+      }
+
+      if (redis && cacheKey) {
+        try {
+          await redis.set(cacheKey, JSON.stringify(analysis), "EX", ANALYSIS_CACHE_TTL_SECONDS);
+        } catch (cacheError) {
+          console.error(`Failed to cache analysis for issue #${parsedIssueNumber}`, cacheError);
+        }
       }
 
       return NextResponse.json(analysis);
